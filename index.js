@@ -1,151 +1,83 @@
-#!/usr/bin/env node
-const fetch = require("node-fetch");
-var version = require("discord.js").version.split("");
+import fetch from "node-fetch";
 
-if (version.includes("(")) {
-  version = version.join("").split("(").pop().split("");
-}
-version = parseInt(version[0] + version[1]);
-
-///////////////////////////
-
-async function getPlayersObj(ip, port) {
-  if (version != 12) {
-    throw new Error(
-      "Invalid discord.js version! Te discord.js version must be v12"
-    );
+export class FiveMServer {
+  /**
+   * @param {string} ip - The server IP address
+   * @param {string|number} port - The server port (default 30120)
+   * @param {object} options - Optional settings (timeout, cacheTTL)
+   */
+  constructor(ip, port = 30120, options = {}) {
+    this.baseUrl = `http://${ip}:${port}`;
+    this.timeout = options.timeout || 5000;
+    this.cache = new Map();
+    this.cacheTTL = options.cacheTTL || 60000;
   }
 
-  const res = await fetch(`http://${ip}:${port}/players.json`);
+  async _request(endpoint) {
+    const now = Date.now();
+    
+    // Return cached data if available and fresh
+    if (this.cache.has(endpoint)) {
+      const entry = this.cache.get(endpoint);
+      if (now - entry.timestamp < this.cacheTTL) return entry.data;
+    }
 
-  if (res.ok) {
-    const data = await res.json();
-    if (data.length === 0) {
-      return null;
-    } else {
+    try {
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), this.timeout);
+      
+      const res = await fetch(`${this.baseUrl}/${endpoint}.json`, { signal: controller.signal });
+      clearTimeout(id);
+
+      if (!res.ok) return null;
+
+      const data = await res.json();
+      this.cache.set(endpoint, { data, timestamp: now });
       return data;
-    }
-  }
-}
-
-async function getPlayers(ip, port) {
-  if (version != 12) {
-    throw new Error(
-      "Invalid discord.js version! Te discord.js version must be v12"
-    );
-  }
-
-  const res = await fetch(`http://${ip}:${port}/players.json`);
-
-  if (res.ok) {
-    const data = await res.json();
-    if (data.length === 0) {
+    } catch (err) {
       return null;
-    } else {
-      return data.length;
     }
   }
-}
 
-async function getMaxPlayers(ip, port) {
-  if (version != 12) {
-    throw new Error(
-      "Invalid discord.js version! Te discord.js version must be v12"
-    );
+
+
+  /** Checks if the server is currently reachable */
+  async isOnline() {
+    const data = await this._request('dynamic');
+    return data !== null;
   }
 
-  const res = await fetch(`http://${ip}:${port}/dynamic.json`);
-
-  if (res.ok) {
-    const data = await res.json();
-    if (data.length === 0) {
-      return null;
-    } else {
-      return data.sv_maxclients;
-    }
-  }
-}
-
-async function getServerResources(ip, port) {
-  if (version != 12) {
-    throw new Error(
-      "Invalid discord.js version! Te discord.js version must be v12"
-    );
+  /** Returns an array of all online player objects */
+  async getPlayers() {
+    return await this._request('players') || [];
   }
 
-  const res = await fetch(`http://${ip}:${port}/info.json`);
-
-  if (res.ok) {
-    const data = await res.json();
-    if (data.length === 0) {
-      return null;
-    } else {
-      return data.resources;
-    }
-  }
-}
-
-async function getServerVars(ip, port) {
-  if (version != 12) {
-    throw new Error(
-      "Invalid discord.js version! Te discord.js version must be v12"
-    );
+  /** Returns just the count of online players */
+  async getPlayerCount() {
+    const players = await this.getPlayers();
+    return players.length;
   }
 
-  const res = await fetch(`http://${ip}:${port}/info.json`);
+  /** Finds a specific player by their Server ID */
+  async getPlayerById(id) {
+    const players = await this.getPlayers();
+    return players.find(p => p.id === parseInt(id)) || null;
+  }
 
-  if (res.ok) {
-    const data = await res.json();
-    if (data.length === 0) {
-      return null;
-    } else {
-      return data.vars;
-    }
+  /** Returns all server metadata (vars, resources, version) */
+  async getServerInfo() {
+    return await this._request('info');
+  }
+
+  /** Returns the max player capacity */
+  async getMaxPlayers() {
+    const data = await this._request('dynamic');
+    return data ? data.sv_maxclients : null;
+  }
+
+  /** Checks if a specific resource is running on the server */
+  async hasResource(resourceName) {
+    const info = await this.getServerInfo();
+    return info?.resources?.includes(resourceName) || false;
   }
 }
-
-async function getServerVersion(ip, port) {
-  if (version != 12) {
-    throw new Error(
-      "Invalid discord.js version! Te discord.js version must be v12"
-    );
-  }
-
-  const res = await fetch(`http://${ip}:${port}/info.json`);
-
-  if (res.ok) {
-    const data = await res.json();
-    if (data.length === 0) {
-      return null;
-    } else {
-      return data.version;
-    }
-  }
-}
-
-async function getServerLicense(ip, port) {
-  if (version != 12) {
-    throw new Error(
-      "Invalid discord.js version! Te discord.js version must be v12"
-    );
-  }
-
-  const res = await fetch(`http://${ip}:${port}/info.json`);
-
-  if (res.ok) {
-    const data = await res.json();
-    if (data.length === 0) {
-      return null;
-    } else {
-      return data.vars.sv_licenseKeyToken;
-    }
-  }
-}
-
-module.exports.getPlayersObj = getPlayersObj;
-module.exports.getPlayers = getPlayers;
-module.exports.getMaxPlayers = getMaxPlayers;
-module.exports.getServerResources = getServerResources;
-module.exports.getServerVars = getServerVars;
-module.exports.getServerVersion = getServerVersion;
-module.exports.getServerLicense = getServerLicense;

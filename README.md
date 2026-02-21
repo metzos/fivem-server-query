@@ -1,44 +1,40 @@
-# js-fivem-api
-A javascript API which interacts with a FiveM server.
+# FiveM Server Query
 
-**How To Install :**
+A class-based Node.js client for querying FiveM server data. Includes built-in caching and health checks.
 
-`npm i js-fivem-api`
+## Usage
 
+```javascript
+import { FiveMServer } from 'fivem-server-query';
 
-**How-to use :** 
+// Initialize the server once
+const server = new FiveMServer("127.0.0.1", 30120); // Type YOUR server's IP & PORT
 
-Here is an example to display the number of online players.
-```
-const server = require("js-fivem-api");
+// Check server status
+if (await server.isOnline()) {
+    const count = await server.getPlayerCount();
+    const max = await server.getMaxPlayers();
+    console.log(`Server Status: ${count}/${max} players online.`);
+}
 
-var ip = "YOUR-IP-GOES-HERE"
-var port = "YOUR-PORT-GOES-HERE" // e.x. "30120"
-
-server.getPlayers(ip, port).then(data => console.log(data));
-```
-
-Here is an example to display an object wich contains all the resources of a server.
-```
-const server = require("js-fivem-api");
-
-var ip = "YOUR-IP-GOES-HERE"
-var port = "YOUR-PORT-GOES-HERE" // e.x. "30120"
-
-server.getServerResources(ip, port).then(data => console.log(data));
+// Search for a specific player
+const player = await server.getPlayerById(12);
+console.log(player ? `Player 12 is: ${player.name}` : "Player not found");
 ```
 
 
-# Functions :
-- **getPlayerObj(ip, port)** Displays the players in the server as an array of objects.
-- **getPlayers(ip, port)** Displays the number of online players in the server.
-- **getMaxPlayers(ip, port)** Displays the number of the maximum players that can connect to the server.
-- **getServerResources(ip, port)** Displays all the server resources as an object.
-- **getServerVars(ip, port)** Displays an object with some info of the server such as "txAdmin Version", "License key", "project Name".
-- **getServerVersion(ip, port)** Displays the version of the server.
-- **getServerLicense(ip, port)** Displays the server license.
+## All Methods
 
+* isOnline(): Returns true if the server responds.
 
-#### Important
+* getPlayers(): Returns the full array of player objects.
 
-Before using the api please read the LICENSE.
+* getPlayerCount(): Returns the number of players online.
+
+* getPlayerById(id): Returns a specific player object.
+
+* getServerInfo(): Returns resources, version, and server variables.
+
+* getMaxPlayers(): Returns the server slots.
+
+* hasResource(name): Returns true if a specific resource is started.
